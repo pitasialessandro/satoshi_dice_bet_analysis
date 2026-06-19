@@ -50,16 +50,12 @@ def identify_satoshi_bet_outputs(outputs, satoshi_addresses):
     return bet_outputs
 
 
-def build_bet_transactions(transactions, bet_outputs, exclude_coinbase=True):
+def build_bet_transactions(transactions, bet_outputs):
     """Attach transaction metadata to SatoshiDice bet outputs."""
-    transaction_metadata = transactions
-    if exclude_coinbase:
-        transaction_metadata = transactions[transactions["isCoinbase"] == 0].copy()
+    transaction_metadata = transactions[transactions["isCoinbase"] == 0].copy()
 
-    # txId should be unique but this wasn't true due to 2 faulty historical coinbase transactions (txId = 142572, 142726)
-    # not a problem for the project since we are ignoring coinbase transactions
-    # if transaction_metadata["txId"].duplicated().any():
-    #     transaction_metadata = transaction_metadata.drop_duplicates("txId", keep="first")
+    if transaction_metadata["txId"].duplicated().any():
+        raise ValueError("Duplicate non-coinbase txId values found.")
 
     bet_transactions = bet_outputs.merge(
         transaction_metadata,
@@ -102,49 +98,32 @@ def build_bet_transactions(transactions, bet_outputs, exclude_coinbase=True):
 
 def build_identification_report(
     transactions,
-    satoshi_addresses,
     bet_outputs,
-    candidate_bet_transactions,
     bet_transactions,
 ):
     """Build basic sanity-check metrics for the bet identification step."""
-    coinbase_tx_ids = set(transactions.loc[transactions["isCoinbase"] == 1, "txId"])
-    candidate_tx_ids = set(bet_outputs["txId"])
-
     return {
         "total_transactions": len(transactions),
         "coinbase_transactions": int(transactions["isCoinbase"].sum()),
         "non_coinbase_transactions": int((transactions["isCoinbase"] == 0).sum()),
-        "satoshi_addresses_total": len(satoshi_addresses),
-        "satoshi_addresses_found_in_mapping": int(satoshi_addresses["addressId"].notna().sum()),
-        "satoshi_addresses_missing_in_mapping": int(satoshi_addresses["addressId"].isna().sum()),
         "satoshi_bet_outputs": len(bet_outputs),
-        "candidate_bet_transactions": len(candidate_tx_ids),
-        "candidate_bet_transactions_coinbase": len(candidate_tx_ids & coinbase_tx_ids),
-        "bet_transactions_non_coinbase": int(bet_transactions["txId"].nunique()),
+        "bet_transactions": int(bet_transactions["txId"].nunique()),
     }
 
 
 def identify_bets(transactions, outputs, mapping, dice_infos):
     satoshi_addresses = map_satoshi_addresses(dice_infos, mapping)
     bet_outputs = identify_satoshi_bet_outputs(outputs, satoshi_addresses)
-    # TODO: remove this candidates since we don't need it for analysis, as well is confusing with the "candidate_bet_transactions" in the report since they mean 2 different things
-    candidate_bet_transactions = build_bet_transactions(
-        transactions, bet_outputs, exclude_coinbase=False
-    )
-    bet_transactions = build_bet_transactions(transactions, bet_outputs, exclude_coinbase=True)
+    bet_transactions = build_bet_transactions(transactions, bet_outputs)
     report = build_identification_report(
         transactions,
-        satoshi_addresses,
         bet_outputs,
-        candidate_bet_transactions,
         bet_transactions,
     )
 
     return {
         "satoshi_addresses": satoshi_addresses,
         "satoshi_bet_outputs": bet_outputs,
-        "candidate_bet_transactions": candidate_bet_transactions,
         "bet_transactions": bet_transactions,
         "report": report,
     }

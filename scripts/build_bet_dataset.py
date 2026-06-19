@@ -44,11 +44,6 @@ def save_results(result, output_dir):
     result["satoshi_bet_outputs"].to_csv(
         output_dir / "satoshi_bet_outputs.csv.gz", index=False, compression="gzip"
     )
-    result["candidate_bet_transactions"].to_csv(
-        output_dir / "candidate_bet_transactions.csv.gz",
-        index=False,
-        compression="gzip",
-    )
     result["bet_transactions"].to_csv(
         output_dir / "bet_transactions.csv.gz", index=False, compression="gzip"
     )
