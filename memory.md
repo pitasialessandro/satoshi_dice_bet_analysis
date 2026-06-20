@@ -15,6 +15,9 @@
 - Simplified bet identification: coinbase transactions are now excluded a priori when building bet transactions, no `candidate_bet_transactions` table is generated, and the identification report keeps only essential counts.
 - Added time-series analysis for project section 4.1: `src/analyses.py` computes bet percentages by period and `scripts/build_bet_time_series.py` writes day/week/month CSV files.
 - Added reusable plotting infrastructure: `src/plotting.py` contains plotting functions and `scripts/build_figures.py` writes PNG figures under `outputs/figures/`.
+- Added address popularity analysis for project section 4.2: `scripts/build_address_popularity.py` writes `address_popularity.csv`, and `scripts/build_figures.py` now also generates the two-panel popularity comparison PNG.
+- Simplified `address_popularity.csv` to only keep fields needed by the project: address metadata, `bet_count`, and `total_bet_amount_btc`.
+- Simplified address popularity computation to one groupby: `bet_count` uses `txId.nunique()` and `total_bet_amount_btc` sums output amounts per SatoshiDice address.
 
 ## Important Findings
 - Main CSV files have no header; column names must come from `src/load_data.py`.
@@ -24,6 +27,7 @@
 - `transactions.txId` is not globally unique because duplicate historical coinbase txIds `142572` and `142726` exist. Filter `isCoinbase == 0` before merges that validate `txId` uniqueness.
 - `build_bet_transactions()` always filters `isCoinbase == 0` before merging, then raises if any non-coinbase `txId` duplicates remain.
 - For bet percentage over time, the denominator is all rows in `transactions.csv` including coinbase transactions; the numerator is unique SatoshiDice bet `txId` values from `bet_transactions.csv.gz`.
+- Address popularity uses two different metrics: `bet_count` counts unique `txId` values per SatoshiDice address, while `total_bet_amount_btc` sums the BTC sent to that address. The final table is left-joined from `satoshi_addresses.csv`, so all 27 known addresses remain present even if an address had zero bets.
 
 ## Commands
 - Syntax check: `python -m compileall src scripts`
@@ -32,19 +36,19 @@
 - Smoke test with sampled mapping: `python scripts/build_bet_dataset.py --sample 100000 --sample-mapping 100000`
 - Build bet percentage time series from processed outputs: `python scripts/build_bet_time_series.py`
 - Sample time-series build: `python scripts/build_bet_time_series.py --sample 100000`
+- Build address popularity table: `python scripts/build_address_popularity.py`
 - Build PNG figures: `python scripts/build_figures.py`
-- Build PNG figures from sample processed data: `python scripts/build_figures.py --sample`
 
 ## Outputs
 - Full build outputs are in `outputs/processed/`.
 - Sample outputs are in `outputs/processed/sample/` and must not be treated as final analysis results.
 - Generated bet-identification files are `satoshi_addresses.csv`, `satoshi_bet_outputs.csv.gz`, `bet_transactions.csv.gz`, and `identification_report.json`.
 - Generated time-series files are `bet_percentage_by_day.csv`, `bet_percentage_by_week.csv`, and `bet_percentage_by_month.csv`.
-- Generated figures are saved as PNG files under `outputs/figures/`; sample figure runs write to `outputs/figures/sample/`.
+- Generated address popularity file is `address_popularity.csv`.
+- Generated figures are saved as PNG files under `outputs/figures/`.
 - CSV/CSV.GZ is preferred over Parquet because the project is course-facing and uses standard formats.
 
 ## Next Logical Steps
-- Implement address popularity by count and amount, then plots for the generated time-series/address analyses.
 - Implement payout matching using `inputs.csv` and UTXO joins on `(prevTxId, prevTxpos) -> (txId, position)`.
 - Implement top-3-address analyses: temporal distributions, fee/amount correlation, and intervals between consecutive bets.
 - Implement simple-bet chain graph analysis with NetworkX.
