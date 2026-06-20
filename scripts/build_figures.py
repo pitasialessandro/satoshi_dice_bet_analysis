@@ -12,7 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import FIGURES_DIR, PROCESSED_DIR
-from src.plotting import plot_monthly_transactions_vs_bet_share
+from src.plotting import (
+    plot_address_popularity_comparison,
+    plot_monthly_transactions_vs_bet_share,
+)
 
 
 def parse_args():
@@ -33,6 +36,16 @@ def main():
     output_path = figures_dir / "monthly_transactions_vs_satoshidice_share.png"
     print(f"Saving {output_path}...", flush=True)
     fig, _ = plot_monthly_transactions_vs_bet_share(monthly, output_path=output_path)
+    fig.clear()
+
+    print("Loading address popularity data...", flush=True)
+    address_popularity = pd.read_csv(processed_dir / "address_popularity.csv")
+
+    output_path = figures_dir / "address_popularity_comparison.png"
+    print(f"Saving {output_path}...", flush=True)
+    fig, _ = plot_address_popularity_comparison(
+        address_popularity, output_path=output_path
+    )
     fig.clear()
 
     print(f"Saved figures in: {figures_dir}", flush=True)
