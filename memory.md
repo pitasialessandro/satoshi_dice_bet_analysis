@@ -18,6 +18,8 @@
 - Added address popularity analysis for project section 4.2: `scripts/build_address_popularity.py` writes `address_popularity.csv`, and `scripts/build_figures.py` now also generates the two-panel popularity comparison PNG.
 - Simplified `address_popularity.csv` to only keep fields needed by the project: address metadata, `bet_count`, and `total_bet_amount_btc`.
 - Simplified address popularity computation to one groupby: `bet_count` uses `txId.nunique()` and `total_bet_amount_btc` sums output amounts per SatoshiDice address.
+- Added payout matching for project section 4.3: `src/payouts.py` links bet outputs to later spending inputs, and `scripts/build_payout_matches.py` writes payout matches plus block-distance summary.
+- Full payout build found 2,349,938 payout links; 1,965,206 of 1,965,817 bet transactions have a matched payout spend (99.97%). Median block distance is 0 and mean block distance is about 1.25 blocks.
 
 ## Important Findings
 - Main CSV files have no header; column names must come from `src/load_data.py`.
@@ -28,6 +30,7 @@
 - `build_bet_transactions()` always filters `isCoinbase == 0` before merging, then raises if any non-coinbase `txId` duplicates remain.
 - For bet percentage over time, the denominator is all rows in `transactions.csv` including coinbase transactions; the numerator is unique SatoshiDice bet `txId` values from `bet_transactions.csv.gz`.
 - Address popularity uses two different metrics: `bet_count` counts unique `txId` values per SatoshiDice address, while `total_bet_amount_btc` sums the BTC sent to that address. The final table is left-joined from `satoshi_addresses.csv`, so all 27 known addresses remain present even if an address had zero bets.
+- Payout matching uses the UTXO relation `inputs.prevTxId/prevTxpos -> bet_transactions.txId/position`; distances are measured only as block difference, not as numeric `txId` difference or timestamp difference. Timestamp-based distance was discarded because Bitcoin block timestamps are miner-provided and not reliable enough for this analysis.
 
 ## Commands
 - Syntax check: `python -m compileall src scripts`
@@ -37,6 +40,7 @@
 - Build bet percentage time series from processed outputs: `python scripts/build_bet_time_series.py`
 - Sample time-series build: `python scripts/build_bet_time_series.py --sample 100000`
 - Build address popularity table: `python scripts/build_address_popularity.py`
+- Build payout matches and distance summary: `python scripts/build_payout_matches.py`
 - Build PNG figures: `python scripts/build_figures.py`
 
 ## Outputs
@@ -45,11 +49,11 @@
 - Generated bet-identification files are `satoshi_addresses.csv`, `satoshi_bet_outputs.csv.gz`, `bet_transactions.csv.gz`, and `identification_report.json`.
 - Generated time-series files are `bet_percentage_by_day.csv`, `bet_percentage_by_week.csv`, and `bet_percentage_by_month.csv`.
 - Generated address popularity file is `address_popularity.csv`.
+- Generated payout files are `payout_matches.csv.gz` and `payout_distance_summary.csv`.
 - Generated figures are saved as PNG files under `outputs/figures/`.
 - CSV/CSV.GZ is preferred over Parquet because the project is course-facing and uses standard formats.
 
 ## Next Logical Steps
-- Implement payout matching using `inputs.csv` and UTXO joins on `(prevTxId, prevTxpos) -> (txId, position)`.
 - Implement top-3-address analyses: temporal distributions, fee/amount correlation, and intervals between consecutive bets.
 - Implement simple-bet chain graph analysis with NetworkX.
 - Implement WalletExplorer Selenium scraping with caching for chain address wallet lookups.

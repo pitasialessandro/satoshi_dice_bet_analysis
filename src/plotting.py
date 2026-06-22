@@ -118,3 +118,28 @@ def plot_address_popularity_comparison(address_popularity, output_path=None):
         fig.savefig(output_path, dpi=160, bbox_inches="tight")
 
     return fig, (ax_count, ax_amount)
+
+
+def _values_up_to_quantile(values, quantile=0.99):
+    upper_bound = values.quantile(quantile)
+    return values[values <= upper_bound], upper_bound
+
+
+def plot_payout_block_distance_distribution(payout_matches, output_path=None):
+    values, upper_bound = _values_up_to_quantile(payout_matches["blockDistance"])
+    counts = values.value_counts().sort_index()
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(counts.index, counts.values, color="#6aa6c8", alpha=0.85)
+    ax.set_yscale("log")
+    ax.set_title("Bet to Payout Distance in Blocks")
+    ax.set_xlabel(f"Block distance (<= 99th percentile: {upper_bound:.0f})")
+    ax.set_ylabel("Payout link count (log scale)")
+    ax.set_xticks(counts.index)
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+    return fig, ax

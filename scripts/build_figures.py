@@ -15,6 +15,7 @@ from src.config import FIGURES_DIR, PROCESSED_DIR
 from src.plotting import (
     plot_address_popularity_comparison,
     plot_monthly_transactions_vs_bet_share,
+    plot_payout_block_distance_distribution,
 )
 
 
@@ -47,6 +48,21 @@ def main():
         address_popularity, output_path=output_path
     )
     fig.clear()
+
+    payout_matches_path = processed_dir / "payout_matches.csv.gz"
+    if payout_matches_path.exists():
+        print("Loading payout match data...", flush=True)
+        payout_matches = pd.read_csv(
+            payout_matches_path,
+            usecols=["blockDistance"],
+        )
+
+        output_path = figures_dir / "payout_distance_blocks.png"
+        print(f"Saving {output_path}...", flush=True)
+        fig, _ = plot_payout_block_distance_distribution(
+            payout_matches, output_path=output_path
+        )
+        fig.clear()
 
     print(f"Saved figures in: {figures_dir}", flush=True)
 

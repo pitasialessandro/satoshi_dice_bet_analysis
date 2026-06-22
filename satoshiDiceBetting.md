@@ -228,9 +228,7 @@ indirizzi compaiono come input nella stessa transazione, probabilmente sono cont
 stesso utente. Inoltre, quando possibile, WalletExplorer associa questi wallet a entità
 
 
-note (come exchange o servizi), effettuando una forma di de-anonimizzazione parziale della
-
-## blockchain.
+note (come exchange o servizi), effettuando una forma di de-anonimizzazione parziale della blockchain.
 
 L’analisi richiesta dovrà stabilire se:
 ● tutti gli indirizzi di una catena sono riconducibili a un unico wallet;
