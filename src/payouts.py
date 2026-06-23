@@ -35,6 +35,8 @@ def match_payout_transactions(inputs, bet_transactions, transactions):
     if transaction_metadata["txId"].duplicated().any():
         raise ValueError("Duplicate non-coinbase txId values found.")
 
+    # find metadata related to input transactions
+    # we already have metadata for bet transactions from bet_outputs
     payout_metadata = transaction_metadata[
         ["txId", "timestamp", "blockId", "fee"]
     ].rename(

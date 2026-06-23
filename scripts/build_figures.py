@@ -16,7 +16,15 @@ from src.plotting import (
     plot_address_popularity_comparison,
     plot_monthly_transactions_vs_bet_share,
     plot_payout_block_distance_distribution,
+    plot_top_address_bet_distribution,
 )
+
+
+TOP_ADDRESS_FIGURE_FREQUENCIES = {
+    "hour": "h",
+    "day": "D",
+    "week": "W",
+}
 
 
 def parse_args():
@@ -63,6 +71,19 @@ def main():
             payout_matches, output_path=output_path
         )
         fig.clear()
+
+    for period_name, freq in TOP_ADDRESS_FIGURE_FREQUENCIES.items():
+        distribution_path = processed_dir / f"top3_bet_distribution_by_{period_name}.csv"
+        if distribution_path.exists():
+            print(f"Loading top-3 {period_name} distribution data...", flush=True)
+            distribution = pd.read_csv(distribution_path)
+
+            output_path = figures_dir / f"top3_bet_distribution_by_{period_name}.png"
+            print(f"Saving {output_path}...", flush=True)
+            fig, _ = plot_top_address_bet_distribution(
+                distribution, freq=freq, output_path=output_path
+            )
+            fig.clear()
 
     print(f"Saved figures in: {figures_dir}", flush=True)
 

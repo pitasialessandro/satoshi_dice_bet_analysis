@@ -20,6 +20,7 @@
 - Simplified address popularity computation to one groupby: `bet_count` uses `txId.nunique()` and `total_bet_amount_btc` sums output amounts per SatoshiDice address.
 - Added payout matching for project section 4.3: `src/payouts.py` links bet outputs to later spending inputs, and `scripts/build_payout_matches.py` writes payout matches plus block-distance summary.
 - Full payout build found 2,349,938 payout links; 1,965,206 of 1,965,817 bet transactions have a matched payout spend (99.97%). Median block distance is 0 and mean block distance is about 1.25 blocks.
+- Added first top-3-address analysis for project section 4.4: `scripts/build_top_address_distributions.py` writes hourly/daily/weekly bet-count distributions for the three addresses with largest `bet_count`.
 
 ## Important Findings
 - Main CSV files have no header; column names must come from `src/load_data.py`.
@@ -31,6 +32,7 @@
 - For bet percentage over time, the denominator is all rows in `transactions.csv` including coinbase transactions; the numerator is unique SatoshiDice bet `txId` values from `bet_transactions.csv.gz`.
 - Address popularity uses two different metrics: `bet_count` counts unique `txId` values per SatoshiDice address, while `total_bet_amount_btc` sums the BTC sent to that address. The final table is left-joined from `satoshi_addresses.csv`, so all 27 known addresses remain present even if an address had zero bets.
 - Payout matching uses the UTXO relation `inputs.prevTxId/prevTxpos -> bet_transactions.txId/position`; distances are measured only as block difference, not as numeric `txId` difference or timestamp difference. Timestamp-based distance was discarded because Bitcoin block timestamps are miner-provided and not reliable enough for this analysis.
+- Top-3-address analysis selects addresses with `address_popularity.nlargest(3, "bet_count")`; do not rely on CSV ordering because `address_popularity.csv` may be sorted for plotting readability.
 
 ## Commands
 - Syntax check: `python -m compileall src scripts`
@@ -41,6 +43,7 @@
 - Sample time-series build: `python scripts/build_bet_time_series.py --sample 100000`
 - Build address popularity table: `python scripts/build_address_popularity.py`
 - Build payout matches and distance summary: `python scripts/build_payout_matches.py`
+- Build top-3 address temporal distributions: `python scripts/build_top_address_distributions.py`
 - Build PNG figures: `python scripts/build_figures.py`
 
 ## Outputs
@@ -50,14 +53,16 @@
 - Generated time-series files are `bet_percentage_by_day.csv`, `bet_percentage_by_week.csv`, and `bet_percentage_by_month.csv`.
 - Generated address popularity file is `address_popularity.csv`.
 - Generated payout files are `payout_matches.csv.gz` and `payout_distance_summary.csv`.
+- Generated top-3 temporal distribution files are `top3_bet_distribution_by_hour.csv`, `top3_bet_distribution_by_day.csv`, and `top3_bet_distribution_by_week.csv`.
 - Generated figures are saved as PNG files under `outputs/figures/`.
 - CSV/CSV.GZ is preferred over Parquet because the project is course-facing and uses standard formats.
 
 ## Next Logical Steps
-- Implement top-3-address analyses: temporal distributions, fee/amount correlation, and intervals between consecutive bets.
+- Continue top-3-address analyses with fee/amount correlation and intervals between consecutive bets.
 - Implement simple-bet chain graph analysis with NetworkX.
 - Implement WalletExplorer Selenium scraping with caching for chain address wallet lookups.
 
 ## Memory Maintenance
 - Append or update this file after each important logical step: new pipeline stage, completed analysis, discovered dataset gotcha, fixed bug, or changed workflow.
 - Do not erase useful previous context; prefer adding dated or sectioned notes when a past issue may help future agents.
+- Preserve user-added code comments/reminders when editing files; do not rewrite or remove them unless the user explicitly asks.

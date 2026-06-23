@@ -127,9 +127,12 @@ def _values_up_to_quantile(values, quantile=0.99):
 
 def plot_payout_block_distance_distribution(payout_matches, output_path=None):
     values, upper_bound = _values_up_to_quantile(payout_matches["blockDistance"])
+    # count how many times each value appears in the series
+    # then sort by index (block distance, not frequency) 
     counts = values.value_counts().sort_index()
 
     fig, ax = plt.subplots(figsize=(10, 6))
+    # bar chart with log scale
     ax.bar(counts.index, counts.values, color="#6aa6c8", alpha=0.85)
     ax.set_yscale("log")
     ax.set_title("Bet to Payout Distance in Blocks")
@@ -137,6 +140,46 @@ def plot_payout_block_distance_distribution(payout_matches, output_path=None):
     ax.set_ylabel("Payout link count (log scale)")
     ax.set_xticks(counts.index)
     ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+    return fig, ax
+
+
+def plot_top_address_bet_distribution(distribution, freq, output_path=None):
+    df = distribution.copy()
+    df["periodDate"] = pd.PeriodIndex(df["period"], freq=freq).to_timestamp()
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    for dice_name, group in df.groupby("diceName", sort=False):
+        group = group.sort_values("periodDate")
+        ax.plot(
+            group["periodDate"],
+            group["bet_count"],
+            linewidth=1.8,
+            label=dice_name,
+        )
+
+    ax.set_title("Top 3 SatoshiDice Addresses: Bet Distribution Over Time")
+    ax.set_xlabel("Period")
+    ax.set_ylabel("Unique bet transactions")
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend(title="Address type")
+
+    if freq == "h":
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    elif freq == "D":
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    else:
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+
+    fig.autofmt_xdate(rotation=45)
     fig.tight_layout()
 
     if output_path is not None:
