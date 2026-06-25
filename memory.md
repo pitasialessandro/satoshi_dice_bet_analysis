@@ -21,6 +21,12 @@
 - Added payout matching for project section 4.3: `src/payouts.py` links bet outputs to later spending inputs, and `scripts/build_payout_matches.py` writes payout matches plus block-distance summary.
 - Full payout build found 2,349,938 payout links; 1,965,206 of 1,965,817 bet transactions have a matched payout spend (99.97%). Median block distance is 0 and mean block distance is about 1.25 blocks.
 - Added first top-3-address analysis for project section 4.4: `scripts/build_top_address_distributions.py` writes hourly/daily/weekly bet-count distributions for the three addresses with largest `bet_count`.
+- Added top-3 fee/amount correlation analysis: `scripts/build_top3_fee_amount_correlation.py` writes an aggregated points file and a correlation summary with an `all_top3` row plus per-address rows.
+- Full top-3 fee/amount build produced 1,392,137 points. Aggregate correlation is very weak: Pearson about 0.005 and Spearman about 0.106, consistent with fees not being a SatoshiDice game mechanic.
+- Added top-3 consecutive-bet interval analysis: `scripts/build_top3_bet_intervals.py` computes timestamp-based intervals between consecutive bets for each of the three most popular addresses.
+- Added simple-bet chain analysis for project section 5: `src/simple_bet_chains.py` filters simple bets for the most popular SatoshiDice address, links change outputs to later simple-bet inputs with NetworkX, and computes chain summaries plus length distribution.
+- Full simple-bet chain build uses `lessthan 32000` / `1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp` as the most popular address. It produced 526,834 simple bets, 311,847 chain edges, and 214,987 chains. Maximum chain length is 717 simple bets; median chain length is 1, mean is about 2.45, p95 is 7, and p99 is 20.
+- Simplified `src/simple_bet_chains.py` for explainability: the simple-bet filter now builds an explicit count table (`selectedSatoshiOutputCount`, `totalSatoshiOutputCount`, `inputCount`, `outputCount`) and chain extraction no longer uses `nx.weakly_connected_components`; it creates a `nx.DiGraph()` but walks linear UTXO chains from starts to ends.
 
 ## Important Findings
 - Main CSV files have no header; column names must come from `src/load_data.py`.
@@ -33,6 +39,13 @@
 - Address popularity uses two different metrics: `bet_count` counts unique `txId` values per SatoshiDice address, while `total_bet_amount_btc` sums the BTC sent to that address. The final table is left-joined from `satoshi_addresses.csv`, so all 27 known addresses remain present even if an address had zero bets.
 - Payout matching uses the UTXO relation `inputs.prevTxId/prevTxpos -> bet_transactions.txId/position`; distances are measured only as block difference, not as numeric `txId` difference or timestamp difference. Timestamp-based distance was discarded because Bitcoin block timestamps are miner-provided and not reliable enough for this analysis.
 - Top-3-address analysis selects addresses with `address_popularity.nlargest(3, "bet_count")`; do not rely on CSV ordering because `address_popularity.csv` may be sorted for plotting readability.
+- Fee/amount correlation is interpreted as an empirical check, not a causal game mechanic: Bitcoin fees affect miner inclusion incentives, not SatoshiDice win probability.
+- Spearman correlation uses `pandas.Series.corr(method="spearman")`; SciPy must be installed in the project environment because Pandas delegates Spearman computation internally.
+- Consecutive-bet interval analysis intentionally uses transaction timestamps and timestamp sorting, because the project asks for temporal intervals; this differs from payout distance, where timestamp distance was discarded.
+- `top3_bet_intervals_time.png` uses a global 99th-percentile x-axis cutoff only for readability; full interval outliers remain in `top3_bet_intervals.csv.gz` and should be discussed from the processed data/notebook.
+- Simple bet definition for chain analysis: selected SatoshiDice address is the most popular one by `bet_count`; a simple bet has exactly 1 input, exactly 2 outputs, exactly one output to that selected SatoshiDice address, and exactly one total SatoshiDice output. The other output is interpreted as the change output.
+- Simple-bet chain edges link `source.txId/source.changeOutputPosition` to `target.inputPrevTxId/target.inputPrevTxpos`. Chains are extracted by finding simple bets without a parent and following each change-output child until the sequence ends; isolated simple bets have chain length 1.
+- `simple_bet_chain_lengths.png` aggregates lengths greater than 50 only in the plot for readability; `simple_bet_chain_lengths.csv` keeps the full length distribution.
 
 ## Commands
 - Syntax check: `python -m compileall src scripts`
@@ -44,6 +57,9 @@
 - Build address popularity table: `python scripts/build_address_popularity.py`
 - Build payout matches and distance summary: `python scripts/build_payout_matches.py`
 - Build top-3 address temporal distributions: `python scripts/build_top_address_distributions.py`
+- Build top-3 fee/amount correlation: `python scripts/build_top3_fee_amount_correlation.py`
+- Build top-3 consecutive bet intervals: `python scripts/build_top3_bet_intervals.py`
+- Build simple-bet chains: `python scripts/build_simple_bet_chains.py`
 - Build PNG figures: `python scripts/build_figures.py`
 
 ## Outputs
@@ -54,12 +70,13 @@
 - Generated address popularity file is `address_popularity.csv`.
 - Generated payout files are `payout_matches.csv.gz` and `payout_distance_summary.csv`.
 - Generated top-3 temporal distribution files are `top3_bet_distribution_by_hour.csv`, `top3_bet_distribution_by_day.csv`, and `top3_bet_distribution_by_week.csv`.
+- Generated top-3 fee/amount files are `top3_fee_amount_points.csv.gz` and `top3_fee_amount_correlation.csv`.
+- Generated top-3 interval files are `top3_bet_intervals.csv.gz` and `top3_bet_interval_summary.csv`.
+- Generated simple-bet chain files are `simple_bets.csv.gz`, `simple_bet_chain_edges.csv.gz`, `simple_bet_chains.csv`, `simple_bet_chain_lengths.csv`, and `simple_bet_chain_summary.csv`.
 - Generated figures are saved as PNG files under `outputs/figures/`.
 - CSV/CSV.GZ is preferred over Parquet because the project is course-facing and uses standard formats.
 
 ## Next Logical Steps
-- Continue top-3-address analyses with fee/amount correlation and intervals between consecutive bets.
-- Implement simple-bet chain graph analysis with NetworkX.
 - Implement WalletExplorer Selenium scraping with caching for chain address wallet lookups.
 
 ## Memory Maintenance

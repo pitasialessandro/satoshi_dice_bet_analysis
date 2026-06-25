@@ -154,6 +154,9 @@ def plot_top_address_bet_distribution(distribution, freq, output_path=None):
 
     fig, ax = plt.subplots(figsize=(12, 6))
 
+    # plot a line for each address
+    # group-by returns a DataFrameGroupBy obj that contains sub-DataFrames
+    # avoiding filtering manually by each address
     for dice_name, group in df.groupby("diceName", sort=False):
         group = group.sort_values("periodDate")
         ax.plot(
@@ -180,6 +183,130 @@ def plot_top_address_bet_distribution(distribution, freq, output_path=None):
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
 
     fig.autofmt_xdate(rotation=45)
+    fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+    return fig, ax
+
+
+def plot_top3_fee_amount_correlation(points, correlation_summary=None, output_path=None):
+    df = points[points["betAmountBtc"] > 0].copy()
+    if len(df) > 120_000:
+        df = df.sample(120_000, random_state=42)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for dice_name, group in df.groupby("diceName", sort=False):
+        ax.scatter(
+            group["betAmountBtc"],
+            group["feeBtc"],
+            s=6,
+            alpha=0.16,
+            label=dice_name,
+        )
+
+    title = "Top 3 SatoshiDice Addresses: Bet Amount vs Transaction Fee"
+    if correlation_summary is not None:
+        all_top3 = correlation_summary[correlation_summary["scope"] == "all_top3"]
+        if not all_top3.empty:
+            spearman = all_top3["spearman_fee_amount"].iloc[0]
+            title = f"{title}\nSpearman correlation: {spearman:.3f}"
+
+    ax.set_title(title)
+    ax.set_xlabel("Bet amount (BTC, log scale)")
+    ax.set_ylabel("Transaction fee (BTC)")
+    ax.set_xscale("log")
+    ax.grid(alpha=0.25)
+    ax.legend(title="Address type", markerscale=2)
+    fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+    return fig, ax
+
+
+def plot_top3_bet_interval_distribution(bet_intervals, output_path=None):
+    df = bet_intervals.dropna(subset=["timeIntervalMinutes"]).copy()
+    dice_names = list(df["diceName"].drop_duplicates())
+    upper_bound = df["timeIntervalMinutes"].quantile(0.99)
+
+    fig, axes = plt.subplots(
+        nrows=len(dice_names),
+        figsize=(10, 9),
+        sharex=True,
+    )
+    if len(dice_names) == 1:
+        axes = [axes]
+
+    for ax, dice_name in zip(axes, dice_names):
+        values = df.loc[df["diceName"] == dice_name, "timeIntervalMinutes"]
+        values = values[values <= upper_bound]
+
+        ax.hist(values, bins=60, color="#6aa6c8", alpha=0.85, log=True)
+        ax.set_title(dice_name)
+        ax.set_ylabel("Intervals count\n(log scale)")
+        ax.grid(axis="y", alpha=0.25)
+
+    axes[-1].set_xlabel(
+        f"Minutes between consecutive bets (<= global 99th percentile: {upper_bound:.2f})"
+    )
+    fig.suptitle("Top 3 SatoshiDice Addresses: Time Between Consecutive Bets", y=0.995)
+    fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+    return fig, axes
+
+
+def plot_simple_bet_chain_length_distribution(chain_lengths, output_path=None):
+    df = chain_lengths.sort_values("chainLength").copy()
+    visible = df[df["chainLength"] <= 50].copy()
+    tail = df[df["chainLength"] > 50]
+
+    if not tail.empty:
+        visible = pd.concat(
+            [
+                visible,
+                pd.DataFrame(
+                    [
+                        {
+                            "chainLength": 51,
+                            "chainCount": tail["chainCount"].sum(),
+                            "simpleBetCount": tail["simpleBetCount"].sum(),
+                            "chainPercentage": tail["chainPercentage"].sum(),
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+
+    labels = visible["chainLength"].astype(str)
+    labels = labels.mask(visible["chainLength"] == 51, "51+")
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.bar(labels, visible["chainCount"], color="#6aa6c8", alpha=0.85)
+    ax.set_yscale("log")
+    ax.set_title("Simple-Bet Chain Length Distribution")
+    ax.set_xlabel("Chain length (number of simple bets)")
+    ax.set_ylabel("Chain count (log scale)")
+    ax.grid(axis="y", alpha=0.25)
+    ax.tick_params(axis="x", rotation=45)
+
+    longest = df.loc[df["chainLength"].idxmax()]
+    ax.annotate(
+        f"Longest chain: {int(longest['chainLength'])} bets",
+        xy=(0.98, 0.92),
+        xycoords="axes fraction",
+        ha="right",
+        bbox={"boxstyle": "round,pad=0.3", "fc": "white", "ec": "#999999"},
+        fontsize=9,
+    )
+
     fig.tight_layout()
 
     if output_path is not None:

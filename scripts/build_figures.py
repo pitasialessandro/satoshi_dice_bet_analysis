@@ -16,7 +16,10 @@ from src.plotting import (
     plot_address_popularity_comparison,
     plot_monthly_transactions_vs_bet_share,
     plot_payout_block_distance_distribution,
+    plot_simple_bet_chain_length_distribution,
     plot_top_address_bet_distribution,
+    plot_top3_bet_interval_distribution,
+    plot_top3_fee_amount_correlation,
 )
 
 
@@ -84,6 +87,47 @@ def main():
                 distribution, freq=freq, output_path=output_path
             )
             fig.clear()
+
+    fee_amount_points_path = processed_dir / "top3_fee_amount_points.csv.gz"
+    fee_amount_summary_path = processed_dir / "top3_fee_amount_correlation.csv"
+    if fee_amount_points_path.exists() and fee_amount_summary_path.exists():
+        print("Loading top-3 fee/amount correlation data...", flush=True)
+        points = pd.read_csv(fee_amount_points_path)
+        summary = pd.read_csv(fee_amount_summary_path)
+
+        output_path = figures_dir / "top3_fee_amount_correlation.png"
+        print(f"Saving {output_path}...", flush=True)
+        fig, _ = plot_top3_fee_amount_correlation(
+            points, correlation_summary=summary, output_path=output_path
+        )
+        fig.clear()
+
+    bet_intervals_path = processed_dir / "top3_bet_intervals.csv.gz"
+    if bet_intervals_path.exists():
+        print("Loading top-3 bet interval data...", flush=True)
+        bet_intervals = pd.read_csv(
+            bet_intervals_path,
+            usecols=["diceName", "timeIntervalMinutes"],
+        )
+
+        output_path = figures_dir / "top3_bet_intervals_time.png"
+        print(f"Saving {output_path}...", flush=True)
+        fig, _ = plot_top3_bet_interval_distribution(
+            bet_intervals, output_path=output_path
+        )
+        fig.clear()
+
+    chain_lengths_path = processed_dir / "simple_bet_chain_lengths.csv"
+    if chain_lengths_path.exists():
+        print("Loading simple-bet chain length data...", flush=True)
+        chain_lengths = pd.read_csv(chain_lengths_path)
+
+        output_path = figures_dir / "simple_bet_chain_lengths.png"
+        print(f"Saving {output_path}...", flush=True)
+        fig, _ = plot_simple_bet_chain_length_distribution(
+            chain_lengths, output_path=output_path
+        )
+        fig.clear()
 
     print(f"Saved figures in: {figures_dir}", flush=True)
 
