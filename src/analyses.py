@@ -138,3 +138,111 @@ def compute_top_address_bet_distributions(bet_transactions, address_popularity, 
         )
         for period_name, freq in TOP_ADDRESS_DISTRIBUTION_FREQUENCIES.items()
     }
+
+
+def compute_top3_fee_amount_points(bet_transactions, address_popularity):
+    top_addresses = get_top_addresses_by_bet_count(address_popularity, n=3)
+    filtered = bet_transactions[
+        bet_transactions["addressId"].isin(top_addresses["addressId"])
+    ].copy()
+
+    # aggregate multiple outputs in the same tx
+    return filtered.groupby(["addressId", "satoshiAddress", "diceName", "txId"], as_index=False).agg(
+        betAmountBtc=("betAmountBtc", "sum"),
+        feeBtc=("feeBtc", "first"),
+    )
+
+
+def _fee_amount_correlation_row(points, scope, address_id=None, satoshi_address=None, dice_name=None):
+    # compute correlation data for each address / as a whole -> returns a dict
+    positive_fee_points = points[points["feeBtc"] > 0]
+
+    return {
+        "scope": scope,
+        "addressId": address_id,
+        "satoshiAddress": satoshi_address,
+        "diceName": dice_name,
+        "n_bets": len(points),
+        "n_positive_fee_bets": len(positive_fee_points),
+        "pearson_fee_amount": points["feeBtc"].corr(
+            points["betAmountBtc"], method="pearson"
+        ),
+        "spearman_fee_amount": points["feeBtc"].corr(
+            points["betAmountBtc"], method="spearman"
+        ),
+        "pearson_positive_fee_amount": positive_fee_points["feeBtc"].corr(
+            positive_fee_points["betAmountBtc"], method="pearson"
+        ),
+        "spearman_positive_fee_amount": positive_fee_points["feeBtc"].corr(
+            positive_fee_points["betAmountBtc"], method="spearman"
+        ),
+        "median_fee_btc": points["feeBtc"].median(),
+        "median_bet_amount_btc": points["betAmountBtc"].median(),
+    }
+
+
+def compute_top3_fee_amount_correlation(points):
+    rows = [_fee_amount_correlation_row(points, scope="all_top3")]
+
+    for (address_id, satoshi_address, dice_name), group in points.groupby(
+        ["addressId", "satoshiAddress", "diceName"], sort=False
+    ):
+        rows.append(
+            _fee_amount_correlation_row(
+                group,
+                scope="address",
+                address_id=address_id,
+                satoshi_address=satoshi_address,
+                dice_name=dice_name,
+            )
+        )
+    # compact dictionaries into one DataFrame
+    # key -> column mapping
+    return pd.DataFrame(rows)
+
+
+def compute_top3_bet_intervals(bet_transactions, address_popularity):
+    top_addresses = get_top_addresses_by_bet_count(address_popularity, n=3)
+    filtered = bet_transactions[
+        bet_transactions["addressId"].isin(top_addresses["addressId"])
+    ].copy()
+    filtered = filtered.drop_duplicates(["addressId", "txId"])
+    filtered = filtered.sort_values(["addressId", "timestamp", "txId"])
+
+    # create groups for each address
+    grouped = filtered.groupby("addressId", sort=False)
+    # no need for loop that goes over each address here, pandas does it implicitly
+    # shift takes the value of prev row
+    filtered["previousTxId"] = grouped["txId"].shift()
+    filtered["previousTimestamp"] = grouped["timestamp"].shift()
+    filtered["timeIntervalSeconds"] = filtered["timestamp"] - filtered["previousTimestamp"]
+    filtered["timeIntervalMinutes"] = filtered["timeIntervalSeconds"] / 60
+
+    return filtered[
+        [
+            "addressId",
+            "satoshiAddress",
+            "diceName",
+            "txId",
+            "timestamp",
+            "previousTxId",
+            "previousTimestamp",
+            "timeIntervalSeconds",
+            "timeIntervalMinutes",
+        ]
+    ]
+
+
+def compute_top3_bet_interval_summary(bet_intervals):
+    valid_intervals = bet_intervals.dropna(subset=["timeIntervalMinutes"])
+
+    return valid_intervals.groupby(
+        ["addressId", "satoshiAddress", "diceName"], as_index=False
+    ).agg(
+        n_intervals=("timeIntervalMinutes", "count"),
+        time_interval_minutes_mean=("timeIntervalMinutes", "mean"),
+        time_interval_minutes_median=("timeIntervalMinutes", "median"),
+        time_interval_minutes_p75=("timeIntervalMinutes", lambda values: values.quantile(0.75)),
+        time_interval_minutes_p90=("timeIntervalMinutes", lambda values: values.quantile(0.90)),
+        time_interval_minutes_p95=("timeIntervalMinutes", lambda values: values.quantile(0.95)),
+    )
