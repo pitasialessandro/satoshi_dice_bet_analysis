@@ -120,13 +120,12 @@ def plot_address_popularity_comparison(address_popularity, output_path=None):
     return fig, (ax_count, ax_amount)
 
 
-def _values_up_to_quantile(values, quantile=0.99):
-    upper_bound = values.quantile(quantile)
-    return values[values <= upper_bound], upper_bound
-
-
 def plot_payout_block_distance_distribution(payout_matches, output_path=None):
-    values, upper_bound = _values_up_to_quantile(payout_matches["blockDistance"])
+    upper_bound = payout_matches["blockDistance"].quantile(0.99)
+    values = payout_matches.loc[
+        payout_matches["blockDistance"] <= upper_bound,
+        "blockDistance",
+    ]
     # count how many times each value appears in the series
     # then sort by index (block distance, not frequency) 
     counts = values.value_counts().sort_index()
@@ -140,6 +139,54 @@ def plot_payout_block_distance_distribution(payout_matches, output_path=None):
     ax.set_ylabel("Payout link count (log scale)")
     ax.set_xticks(counts.index)
     ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+    return fig, ax
+
+
+def plot_payout_block_distance_boxplot(payout_matches, output_path=None):
+    values = payout_matches["blockDistance"].dropna()
+
+    fig, ax = plt.subplots(figsize=(7, 8))
+    ax.boxplot(
+        values,
+        vert=True,
+        showfliers=True,
+        patch_artist=True,
+        boxprops={"facecolor": "#8fb6d9", "alpha": 0.75},
+        medianprops={"color": "#c43d32", "linewidth": 2},
+        flierprops={
+            "marker": "o",
+            "markersize": 2,
+            "markerfacecolor": "#333333",
+            "markeredgecolor": "#333333",
+            "alpha": 0.18,
+        },
+    )
+
+    median = values.median()
+    q1 = values.quantile(0.25)
+    q3 = values.quantile(0.75)
+    p95 = values.quantile(0.95)
+    maximum = values.max()
+
+    ax.set_title("Bet to Payout Distance in Blocks: Box Plot")
+    ax.set_ylabel("Block distance")
+    ax.set_xticks([1])
+    ax.set_xticklabels(["Payout links"])
+    ax.grid(axis="y", alpha=0.25)
+    ax.annotate(
+        f"Median: {median:.0f}\nQ1: {q1:.0f}\nQ3: {q3:.0f}\n95th percentile: {p95:.0f}\nMax: {maximum:.0f}",
+        xy=(0.98, 0.98),
+        xycoords="axes fraction",
+        ha="right",
+        va="top",
+        bbox={"boxstyle": "round,pad=0.3", "fc": "white", "ec": "#999999"},
+        fontsize=9,
+    )
     fig.tight_layout()
 
     if output_path is not None:
@@ -192,7 +239,7 @@ def plot_top_address_bet_distribution(distribution, freq, output_path=None):
 
 
 def plot_top3_fee_amount_correlation(points, correlation_summary=None, output_path=None):
-    df = points[points["betAmountBtc"] > 0].copy()
+    df = points[(points["betAmountBtc"] > 0) & (points["feeBtc"] > 0)].copy()
     if len(df) > 120_000:
         df = df.sample(120_000, random_state=42)
 
@@ -216,8 +263,9 @@ def plot_top3_fee_amount_correlation(points, correlation_summary=None, output_pa
 
     ax.set_title(title)
     ax.set_xlabel("Bet amount (BTC, log scale)")
-    ax.set_ylabel("Transaction fee (BTC)")
+    ax.set_ylabel("Transaction fee (BTC, log scale)")
     ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.grid(alpha=0.25)
     ax.legend(title="Address type", markerscale=2)
     fig.tight_layout()
@@ -231,7 +279,6 @@ def plot_top3_fee_amount_correlation(points, correlation_summary=None, output_pa
 def plot_top3_bet_interval_distribution(bet_intervals, output_path=None):
     df = bet_intervals.dropna(subset=["timeIntervalMinutes"]).copy()
     dice_names = list(df["diceName"].drop_duplicates())
-    upper_bound = df["timeIntervalMinutes"].quantile(0.99)
 
     fig, axes = plt.subplots(
         nrows=len(dice_names),
@@ -243,16 +290,13 @@ def plot_top3_bet_interval_distribution(bet_intervals, output_path=None):
 
     for ax, dice_name in zip(axes, dice_names):
         values = df.loc[df["diceName"] == dice_name, "timeIntervalMinutes"]
-        values = values[values <= upper_bound]
 
-        ax.hist(values, bins=60, color="#6aa6c8", alpha=0.85, log=True)
+        ax.hist(values, bins=100, color="#6aa6c8", alpha=0.85, log=True)
         ax.set_title(dice_name)
         ax.set_ylabel("Intervals count\n(log scale)")
         ax.grid(axis="y", alpha=0.25)
 
-    axes[-1].set_xlabel(
-        f"Minutes between consecutive bets (<= global 99th percentile: {upper_bound:.2f})"
-    )
+    axes[-1].set_xlabel("Minutes between consecutive bets (full range)")
     fig.suptitle("Top 3 SatoshiDice Addresses: Time Between Consecutive Bets", y=0.995)
     fig.tight_layout()
 
@@ -264,38 +308,14 @@ def plot_top3_bet_interval_distribution(bet_intervals, output_path=None):
 
 def plot_simple_bet_chain_length_distribution(chain_lengths, output_path=None):
     df = chain_lengths.sort_values("chainLength").copy()
-    visible = df[df["chainLength"] <= 50].copy()
-    tail = df[df["chainLength"] > 50]
-
-    if not tail.empty:
-        visible = pd.concat(
-            [
-                visible,
-                pd.DataFrame(
-                    [
-                        {
-                            "chainLength": 51,
-                            "chainCount": tail["chainCount"].sum(),
-                            "simpleBetCount": tail["simpleBetCount"].sum(),
-                            "chainPercentage": tail["chainPercentage"].sum(),
-                        }
-                    ]
-                ),
-            ],
-            ignore_index=True,
-        )
-
-    labels = visible["chainLength"].astype(str)
-    labels = labels.mask(visible["chainLength"] == 51, "51+")
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.bar(labels, visible["chainCount"], color="#6aa6c8", alpha=0.85)
+    ax.bar(df["chainLength"], df["chainCount"], color="#6aa6c8", alpha=0.85)
     ax.set_yscale("log")
     ax.set_title("Simple-Bet Chain Length Distribution")
-    ax.set_xlabel("Chain length (number of simple bets)")
+    ax.set_xlabel(f"Chain length (full range, max: {df['chainLength'].max():.0f})")
     ax.set_ylabel("Chain count (log scale)")
     ax.grid(axis="y", alpha=0.25)
-    ax.tick_params(axis="x", rotation=45)
 
     longest = df.loc[df["chainLength"].idxmax()]
     ax.annotate(

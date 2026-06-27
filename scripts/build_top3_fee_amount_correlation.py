@@ -19,7 +19,6 @@ def load_bet_transactions():
         usecols=[
             "txId",
             "addressId",
-            "satoshiAddress",
             "diceName",
             "betAmountBtc",
             "feeBtc",
@@ -27,7 +26,6 @@ def load_bet_transactions():
         dtype={
             "txId": "int64",
             "addressId": "int64",
-            "satoshiAddress": "string",
             "diceName": "string",
             "betAmountBtc": "float64",
             "feeBtc": "float64",

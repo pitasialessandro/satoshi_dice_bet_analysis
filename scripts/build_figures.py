@@ -15,6 +15,7 @@ from src.config import FIGURES_DIR, PROCESSED_DIR
 from src.plotting import (
     plot_address_popularity_comparison,
     plot_monthly_transactions_vs_bet_share,
+    plot_payout_block_distance_boxplot,
     plot_payout_block_distance_distribution,
     plot_simple_bet_chain_length_distribution,
     plot_top_address_bet_distribution,
@@ -43,7 +44,10 @@ def main():
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading monthly bet percentage data...", flush=True)
-    monthly = pd.read_csv(processed_dir / "bet_percentage_by_month.csv")
+    monthly = pd.read_csv(
+        processed_dir / "bet_percentage_by_month.csv",
+        usecols=["period", "total_transactions", "bet_percentage"],
+    )
 
     output_path = figures_dir / "monthly_transactions_vs_satoshidice_share.png"
     print(f"Saving {output_path}...", flush=True)
@@ -51,7 +55,10 @@ def main():
     fig.clear()
 
     print("Loading address popularity data...", flush=True)
-    address_popularity = pd.read_csv(processed_dir / "address_popularity.csv")
+    address_popularity = pd.read_csv(
+        processed_dir / "address_popularity.csv",
+        usecols=["diceName", "bet_count", "total_bet_amount_btc"],
+    )
 
     output_path = figures_dir / "address_popularity_comparison.png"
     print(f"Saving {output_path}...", flush=True)
@@ -75,11 +82,21 @@ def main():
         )
         fig.clear()
 
+        output_path = figures_dir / "payout_distance_blocks_boxplot.png"
+        print(f"Saving {output_path}...", flush=True)
+        fig, _ = plot_payout_block_distance_boxplot(
+            payout_matches, output_path=output_path
+        )
+        fig.clear()
+
     for period_name, freq in TOP_ADDRESS_FIGURE_FREQUENCIES.items():
         distribution_path = processed_dir / f"top3_bet_distribution_by_{period_name}.csv"
         if distribution_path.exists():
             print(f"Loading top-3 {period_name} distribution data...", flush=True)
-            distribution = pd.read_csv(distribution_path)
+            distribution = pd.read_csv(
+                distribution_path,
+                usecols=["period", "diceName", "bet_count"],
+            )
 
             output_path = figures_dir / f"top3_bet_distribution_by_{period_name}.png"
             print(f"Saving {output_path}...", flush=True)
@@ -92,8 +109,14 @@ def main():
     fee_amount_summary_path = processed_dir / "top3_fee_amount_correlation.csv"
     if fee_amount_points_path.exists() and fee_amount_summary_path.exists():
         print("Loading top-3 fee/amount correlation data...", flush=True)
-        points = pd.read_csv(fee_amount_points_path)
-        summary = pd.read_csv(fee_amount_summary_path)
+        points = pd.read_csv(
+            fee_amount_points_path,
+            usecols=["diceName", "betAmountBtc", "feeBtc"],
+        )
+        summary = pd.read_csv(
+            fee_amount_summary_path,
+            usecols=["scope", "spearman_fee_amount"],
+        )
 
         output_path = figures_dir / "top3_fee_amount_correlation.png"
         print(f"Saving {output_path}...", flush=True)
@@ -120,7 +143,10 @@ def main():
     chain_lengths_path = processed_dir / "simple_bet_chain_lengths.csv"
     if chain_lengths_path.exists():
         print("Loading simple-bet chain length data...", flush=True)
-        chain_lengths = pd.read_csv(chain_lengths_path)
+        chain_lengths = pd.read_csv(
+            chain_lengths_path,
+            usecols=["chainLength", "chainCount", "simpleBetCount", "chainPercentage"],
+        )
 
         output_path = figures_dir / "simple_bet_chain_lengths.png"
         print(f"Saving {output_path}...", flush=True)

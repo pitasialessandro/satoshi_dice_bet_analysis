@@ -6,18 +6,12 @@ def match_payout_transactions(inputs, bet_transactions, transactions):
         [
             "txId",
             "position",
-            "timestamp",
             "blockId",
-            "addressId",
-            "satoshiAddress",
-            "diceName",
-            "betAmountBtc",
         ]
     ].rename(
         columns={
             "txId": "betTxId",
             "position": "betOutputPosition",
-            "timestamp": "betTimestamp",
             "blockId": "betBlockId",
         }
     )
@@ -35,16 +29,10 @@ def match_payout_transactions(inputs, bet_transactions, transactions):
     if transaction_metadata["txId"].duplicated().any():
         raise ValueError("Duplicate non-coinbase txId values found.")
 
-    # find metadata related to input transactions
-    # we already have metadata for bet transactions from bet_outputs
-    payout_metadata = transaction_metadata[
-        ["txId", "timestamp", "blockId", "fee"]
-    ].rename(
+    payout_metadata = transaction_metadata[["txId", "blockId"]].rename(
         columns={
             "txId": "payoutTxId",
-            "timestamp": "payoutTimestamp",
             "blockId": "payoutBlockId",
-            "fee": "payoutFee",
         }
     )
 
@@ -63,20 +51,13 @@ def match_payout_transactions(inputs, bet_transactions, transactions):
         "betTxId",
         "betOutputPosition",
         "payoutTxId",
-        "addressId",
-        "satoshiAddress",
-        "diceName",
-        "betAmountBtc",
-        "betTimestamp",
         "betBlockId",
-        "payoutTimestamp",
         "payoutBlockId",
-        "payoutFee",
         "blockDistance",
     ]
 
     return payout_matches[ordered_columns].sort_values(
-        ["betTimestamp", "betTxId", "betOutputPosition"], ignore_index=True
+        ["betTxId", "betOutputPosition", "payoutTxId"], ignore_index=True
     )
 
 

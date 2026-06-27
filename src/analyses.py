@@ -68,7 +68,7 @@ def compute_address_popularity(bet_transactions, satoshi_addresses):
 
     address_lookup = satoshi_addresses.rename(
         columns={"Address": "satoshiAddress", "Name": "diceName"}
-    )[address_columns + ["WinOdds", "PriceMultiplier"]]
+    )[address_columns]
 
     popularity = address_lookup.merge(
         popularity,
@@ -88,7 +88,7 @@ def compute_address_popularity(bet_transactions, satoshi_addresses):
 
 def get_top_addresses_by_bet_count(address_popularity, n=3):
     return address_popularity.nlargest(n, "bet_count")[
-        ["addressId", "satoshiAddress", "diceName"]
+        ["addressId", "diceName"]
     ].reset_index(drop=True)
 
 
@@ -126,7 +126,7 @@ def compute_top_address_bet_distribution(bet_transactions, top_addresses, freq):
     distribution["period"] = distribution["period"].astype(str)
 
     return distribution[
-        ["period", "addressId", "satoshiAddress", "diceName", "bet_count"]
+        ["period", "addressId", "diceName", "bet_count"]
     ]
 
 
@@ -147,20 +147,19 @@ def compute_top3_fee_amount_points(bet_transactions, address_popularity):
     ].copy()
 
     # aggregate multiple outputs in the same tx
-    return filtered.groupby(["addressId", "satoshiAddress", "diceName", "txId"], as_index=False).agg(
+    return filtered.groupby(["addressId", "diceName", "txId"], as_index=False).agg(
         betAmountBtc=("betAmountBtc", "sum"),
         feeBtc=("feeBtc", "first"),
     )
 
 
-def _fee_amount_correlation_row(points, scope, address_id=None, satoshi_address=None, dice_name=None):
+def _fee_amount_correlation_row(points, scope, address_id=None, dice_name=None):
     # compute correlation data for each address / as a whole -> returns a dict
     positive_fee_points = points[points["feeBtc"] > 0]
 
     return {
         "scope": scope,
         "addressId": address_id,
-        "satoshiAddress": satoshi_address,
         "diceName": dice_name,
         "n_bets": len(points),
         "n_positive_fee_bets": len(positive_fee_points),
@@ -184,15 +183,14 @@ def _fee_amount_correlation_row(points, scope, address_id=None, satoshi_address=
 def compute_top3_fee_amount_correlation(points):
     rows = [_fee_amount_correlation_row(points, scope="all_top3")]
 
-    for (address_id, satoshi_address, dice_name), group in points.groupby(
-        ["addressId", "satoshiAddress", "diceName"], sort=False
+    for (address_id, dice_name), group in points.groupby(
+        ["addressId", "diceName"], sort=False
     ):
         rows.append(
             _fee_amount_correlation_row(
                 group,
                 scope="address",
                 address_id=address_id,
-                satoshi_address=satoshi_address,
                 dice_name=dice_name,
             )
         )
@@ -209,24 +207,17 @@ def compute_top3_bet_intervals(bet_transactions, address_popularity):
     filtered = filtered.drop_duplicates(["addressId", "txId"])
     filtered = filtered.sort_values(["addressId", "timestamp", "txId"])
 
-    # create groups for each address
     grouped = filtered.groupby("addressId", sort=False)
-    # no need for loop that goes over each address here, pandas does it implicitly
-    # shift takes the value of prev row
-    filtered["previousTxId"] = grouped["txId"].shift()
-    filtered["previousTimestamp"] = grouped["timestamp"].shift()
-    filtered["timeIntervalSeconds"] = filtered["timestamp"] - filtered["previousTimestamp"]
+    previous_timestamp = grouped["timestamp"].shift()
+    filtered["timeIntervalSeconds"] = filtered["timestamp"] - previous_timestamp
     filtered["timeIntervalMinutes"] = filtered["timeIntervalSeconds"] / 60
 
     return filtered[
         [
             "addressId",
-            "satoshiAddress",
             "diceName",
             "txId",
             "timestamp",
-            "previousTxId",
-            "previousTimestamp",
             "timeIntervalSeconds",
             "timeIntervalMinutes",
         ]
@@ -237,7 +228,7 @@ def compute_top3_bet_interval_summary(bet_intervals):
     valid_intervals = bet_intervals.dropna(subset=["timeIntervalMinutes"])
 
     return valid_intervals.groupby(
-        ["addressId", "satoshiAddress", "diceName"], as_index=False
+        ["addressId", "diceName"], as_index=False
     ).agg(
         n_intervals=("timeIntervalMinutes", "count"),
         time_interval_minutes_mean=("timeIntervalMinutes", "mean"),

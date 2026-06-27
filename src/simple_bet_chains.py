@@ -1,8 +1,6 @@
 import networkx as nx
 import pandas as pd
 
-from src.config import SATOSHI_PER_BTC
-
 
 def get_most_popular_satoshi_address(address_popularity):
     return address_popularity.nlargest(1, "bet_count").iloc[0]
@@ -76,17 +74,14 @@ def build_simple_bets(inputs, outputs, bet_transactions, address_popularity):
         columns={
             "position": "changeOutputPosition",
             "addressId": "changeAddressId",
-            "amount": "changeAmount",
         }
     )
-    change_outputs["changeAmountBtc"] = change_outputs["changeAmount"] / SATOSHI_PER_BTC
 
     previous_outputs = outputs[outputs["txId"].isin(simple_inputs["inputPrevTxId"])].rename(
         columns={
             "txId": "inputPrevTxId",
             "position": "inputPrevTxpos",
             "addressId": "inputAddressId",
-            "amount": "inputAmount",
         }
     )
     input_sources = simple_inputs.merge(
@@ -95,7 +90,6 @@ def build_simple_bets(inputs, outputs, bet_transactions, address_popularity):
         how="left",
         validate="many_to_one",
     )
-    input_sources["inputAmountBtc"] = input_sources["inputAmount"] / SATOSHI_PER_BTC
 
     simple_bets = simple_bet_outputs.merge(
         input_sources,
@@ -104,7 +98,7 @@ def build_simple_bets(inputs, outputs, bet_transactions, address_popularity):
         validate="one_to_one",
     ).merge(
         change_outputs[
-            ["txId", "changeOutputPosition", "changeAddressId", "changeAmount", "changeAmountBtc"]
+            ["txId", "changeOutputPosition", "changeAddressId"]
         ],
         on="txId",
         how="inner",
@@ -114,25 +108,14 @@ def build_simple_bets(inputs, outputs, bet_transactions, address_popularity):
     ordered_columns = [
         "txId",
         "timestamp",
-        "datetime",
-        "blockId",
-        "fee",
-        "feeBtc",
         "addressId",
-        "satoshiAddress",
         "diceName",
         "betOutputPosition",
-        "betAmount",
-        "betAmountBtc",
         "inputPrevTxId",
         "inputPrevTxpos",
         "inputAddressId",
-        "inputAmount",
-        "inputAmountBtc",
         "changeOutputPosition",
         "changeAddressId",
-        "changeAmount",
-        "changeAmountBtc",
     ]
 
     return simple_bets[ordered_columns].sort_values(
@@ -142,21 +125,17 @@ def build_simple_bets(inputs, outputs, bet_transactions, address_popularity):
 
 def build_simple_bet_edges(simple_bets):
     source_changes = simple_bets[
-        ["txId", "timestamp", "blockId", "changeOutputPosition"]
+        ["txId", "changeOutputPosition"]
     ].rename(
         columns={
             "txId": "sourceTxId",
-            "timestamp": "sourceTimestamp",
-            "blockId": "sourceBlockId",
         }
     )
     target_inputs = simple_bets[
-        ["txId", "timestamp", "blockId", "inputPrevTxId", "inputPrevTxpos"]
+        ["txId", "inputPrevTxId", "inputPrevTxpos"]
     ].rename(
         columns={
             "txId": "targetTxId",
-            "timestamp": "targetTimestamp",
-            "blockId": "targetBlockId",
         }
     )
 
@@ -168,31 +147,18 @@ def build_simple_bet_edges(simple_bets):
         validate="one_to_one",
     )
     edges = edges[edges["sourceTxId"] != edges["targetTxId"]].copy()
-    edges["blockDistance"] = edges["targetBlockId"] - edges["sourceBlockId"]
-    edges["timeDistanceSeconds"] = edges["targetTimestamp"] - edges["sourceTimestamp"]
 
-    ordered_columns = [
-        "sourceTxId",
-        "targetTxId",
-        "changeOutputPosition",
-        "sourceTimestamp",
-        "targetTimestamp",
-        "sourceBlockId",
-        "targetBlockId",
-        "blockDistance",
-        "timeDistanceSeconds",
-    ]
-
-    return edges[ordered_columns].sort_values(
-        ["sourceTimestamp", "sourceTxId", "targetTxId"], ignore_index=True
+    return edges[["sourceTxId", "targetTxId"]].sort_values(
+        ["sourceTxId", "targetTxId"], ignore_index=True
     )
 
 
 def build_simple_bet_chain_summaries(simple_bets, edges):
     graph = nx.DiGraph()
-    node_metadata = simple_bets.set_index("txId")[["timestamp", "blockId"]].to_dict("index")
-    graph.add_nodes_from((tx_id, metadata) for tx_id, metadata in node_metadata.items())
+    graph.add_nodes_from(simple_bets["txId"])
     graph.add_edges_from(edges[["sourceTxId", "targetTxId"]].itertuples(index=False, name=None))
+
+    timestamp_by_tx = dict(zip(simple_bets["txId"], simple_bets["timestamp"]))
 
     # Each simple bet has one input and one change output, so chains are linear.
     child_by_source = dict(
@@ -210,20 +176,17 @@ def build_simple_bet_chain_summaries(simple_bets, edges):
     def add_chain(chain):
         start_tx_id = chain[0]
         end_tx_id = chain[-1]
-        start_timestamp = graph.nodes[start_tx_id].get("timestamp")
-        end_timestamp = graph.nodes[end_tx_id].get("timestamp")
+        start_timestamp = timestamp_by_tx[start_tx_id]
+        end_timestamp = timestamp_by_tx[end_tx_id]
 
         rows.append(
             {
                 "chainId": len(rows) + 1,
                 "chainLength": len(chain),
-                "edgeCount": len(chain) - 1,
                 "startTxId": start_tx_id,
                 "endTxId": end_tx_id,
                 "startTimestamp": start_timestamp,
                 "endTimestamp": end_timestamp,
-                "startBlockId": graph.nodes[start_tx_id].get("blockId"),
-                "endBlockId": graph.nodes[end_tx_id].get("blockId"),
                 "durationSeconds": end_timestamp - start_timestamp,
             }
         )
@@ -264,8 +227,8 @@ def build_simple_bet_chain_summaries(simple_bets, edges):
         add_chain(chain)
 
     return pd.DataFrame(rows).sort_values(
-        ["chainLength", "edgeCount", "startTimestamp"],
-        ascending=[False, False, True],
+        ["chainLength", "startTimestamp"],
+        ascending=[False, True],
         ignore_index=True,
     )
 

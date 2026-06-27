@@ -1,5 +1,3 @@
-import pandas as pd
-
 from src.config import SATOSHI_PER_BTC
 
 
@@ -47,7 +45,9 @@ def identify_satoshi_bet_outputs(outputs, satoshi_addresses):
     )
     bet_outputs["betAmountBtc"] = bet_outputs["betAmount"] / SATOSHI_PER_BTC
 
-    return bet_outputs
+    return bet_outputs[
+        ["txId", "position", "addressId", "satoshiAddress", "diceName", "betAmountBtc"]
+    ]
 
 
 def build_bet_transactions(transactions, bet_outputs):
@@ -64,31 +64,18 @@ def build_bet_transactions(transactions, bet_outputs):
         validate="many_to_one",
     )
 
-    bet_transactions["datetime"] = pd.to_datetime(
-        bet_transactions["timestamp"], unit="s", utc=True
-    )
     bet_transactions["feeBtc"] = bet_transactions["fee"] / SATOSHI_PER_BTC
 
     ordered_columns = [
         "txId",
         "timestamp",
-        "datetime",
         "blockId",
-        "isCoinbase",
-        "fee",
         "feeBtc",
         "position",
         "addressId",
         "satoshiAddress",
         "diceName",
-        "betAmount",
         "betAmountBtc",
-        "WinOdds",
-        "PriceMultiplier",
-        "HousePercentage",
-        "ExpectReturn",
-        "MinimumBet",
-        "MaximumBet",
     ]
 
     return bet_transactions[ordered_columns].sort_values(

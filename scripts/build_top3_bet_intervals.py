@@ -13,12 +13,11 @@ from src.config import PROCESSED_DIR
 def load_bet_transactions():
     return pd.read_csv(
         PROCESSED_DIR / "bet_transactions.csv.gz",
-        usecols=["txId", "timestamp", "addressId", "satoshiAddress", "diceName"],
+        usecols=["txId", "timestamp", "addressId", "diceName"],
         dtype={
             "txId": "int64",
             "timestamp": "int64",
             "addressId": "int64",
-            "satoshiAddress": "string",
             "diceName": "string",
         },
     )

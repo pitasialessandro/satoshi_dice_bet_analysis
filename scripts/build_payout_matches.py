@@ -17,22 +17,12 @@ def load_bet_transactions():
         usecols=[
             "txId",
             "position",
-            "timestamp",
             "blockId",
-            "addressId",
-            "satoshiAddress",
-            "diceName",
-            "betAmountBtc",
         ],
         dtype={
             "txId": "int64",
             "position": "int16",
-            "timestamp": "int64",
             "blockId": "int32",
-            "addressId": "int64",
-            "satoshiAddress": "string",
-            "diceName": "string",
-            "betAmountBtc": "float64",
         },
     )
 

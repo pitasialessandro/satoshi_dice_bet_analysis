@@ -209,9 +209,7 @@ Una volta costruito il grafo, si richiede di:
 3. rappresentare graficamente tale distribuzione, al fine di analizzare la struttura e la
     persistenza delle sequenze di gioco.
 
-## 6. Scraping di WalletExplorer per verificare appartenenza a
-
-## wallet
+## 6. Scraping di WalletExplorer per verificare appartenenza a wallet
 
 Limitatamente alle ℎ catene di bet di lunghezza massima individuate nella fase precedente, si
 richiede di verificare se gli indirizzi associati agli archi di ciascuna catena appartengano a un
@@ -226,8 +224,6 @@ cluster di indirizzi Bitcoin che si ritiene appartengano alla stessa entità.
 WalletExplorer raggruppa indirizzi la multi-input heuristic che prevede che, se più
 indirizzi compaiono come input nella stessa transazione, probabilmente sono controllati dallo
 stesso utente. Inoltre, quando possibile, WalletExplorer associa questi wallet a entità
-
-
 note (come exchange o servizi), effettuando una forma di de-anonimizzazione parziale della blockchain.
 
 L’analisi richiesta dovrà stabilire se:
