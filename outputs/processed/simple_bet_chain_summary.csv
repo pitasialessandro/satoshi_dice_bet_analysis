@@ -1,0 +1,2 @@
+simple_bets,simple_bet_edges,chains,isolated_simple_bets,max_chain_length,mean_chain_length,median_chain_length,p95_chain_length,p99_chain_length
+526834,311847,214987,130859,717,2.450538869792127,1.0,7.0,20.0

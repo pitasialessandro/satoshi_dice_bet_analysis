@@ -1,0 +1,4 @@
+addressId,diceName,n_intervals,time_interval_minutes_mean,time_interval_minutes_median,time_interval_minutes_p75,time_interval_minutes_p90,time_interval_minutes_p95
+3517367,lessthan 48000,235718,1.5533134225359682,0.0,0.0,0.0,10.283333333333333
+3517636,lessthan 32768,346205,1.0574547835338408,0.0,0.0,0.0,4.933333333333334
+3524394,lessthan 32000,810211,0.4500676572728174,0.0,0.0,0.0,0.0
